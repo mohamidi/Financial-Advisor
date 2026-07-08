@@ -1,0 +1,23 @@
+# Secrets
+.env
+*.pem
+
+# Real financial data (never commit; synthetic data in data/ is fine)
+data/real_*
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
