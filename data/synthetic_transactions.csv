@@ -1,0 +1,218 @@
+date,merchant_name,category,amount,account_id
+2026-03-11,Metro Transit,Transportation,4.33,demo-checking
+2026-03-11,Dental Clinic,Healthcare,93.04,demo-checking
+2026-03-12,Netflix,Subscriptions,15.49,demo-checking
+2026-03-14,Safeway,Groceries,31.9,demo-checking
+2026-03-14,Steam,Entertainment,45.51,demo-checking
+2026-03-14,Spotify,Subscriptions,11.99,demo-checking
+2026-03-15,Whole Foods,Groceries,67.12,demo-checking
+2026-03-15,Bowling Alley,Entertainment,25.56,demo-checking
+2026-03-16,Safeway,Groceries,54.05,demo-checking
+2026-03-16,Uber,Transportation,19.32,demo-checking
+2026-03-16,Hair Salon,Personal Care,89.12,demo-checking
+2026-03-18,Uber,Transportation,23.77,demo-checking
+2026-03-19,Trader Joe's,Groceries,83.92,demo-checking
+2026-03-19,Uber,Transportation,26.23,demo-checking
+2026-03-19,Best Buy,Shopping,167.09,demo-checking
+2026-03-20,Thai Kitchen,Dining,24.43,demo-checking
+2026-03-20,iCloud Storage,Subscriptions,2.99,demo-checking
+2026-03-21,Pizza Palace,Dining,35.4,demo-checking
+2026-03-21,IKEA,Home,169.17,demo-checking
+2026-03-22,Chipotle,Dining,16.89,demo-checking
+2026-03-24,Sushi Place,Dining,58.67,demo-checking
+2026-03-24,Local Cafe,Dining,7.72,demo-checking
+2026-03-24,Lyft,Transportation,14.35,demo-checking
+2026-03-25,Thai Kitchen,Dining,38.27,demo-checking
+2026-03-25,Sushi Place,Dining,60.15,demo-checking
+2026-03-25,Uber,Transportation,33.52,demo-checking
+2026-03-25,Best Buy,Shopping,69.28,demo-checking
+2026-03-26,Whole Foods,Groceries,33.27,demo-checking
+2026-03-27,Pizza Palace,Dining,38.67,demo-checking
+2026-03-27,Thai Kitchen,Dining,33.56,demo-checking
+2026-03-28,Local Cafe,Dining,12.7,demo-checking
+2026-03-29,Bowling Alley,Entertainment,23.19,demo-checking
+2026-03-29,Hair Salon,Personal Care,84.1,demo-checking
+2026-03-30,Local Cafe,Dining,13.13,demo-checking
+2026-03-30,Shell Gas,Transportation,38.45,demo-checking
+2026-03-31,Safeway,Groceries,50.92,demo-checking
+2026-04-01,Sushi Place,Dining,46.11,demo-checking
+2026-04-01,Gym Membership,Subscriptions,45.0,demo-checking
+2026-04-03,Sushi Place,Dining,43.51,demo-checking
+2026-04-03,PG&E Electric,Utilities,95.0,demo-checking
+2026-04-04,Chipotle,Dining,10.78,demo-checking
+2026-04-05,Comcast Internet,Utilities,79.99,demo-checking
+2026-04-05,United Airlines,Travel,487.32,demo-checking
+2026-04-06,Shell Gas,Transportation,37.16,demo-checking
+2026-04-06,Shell Gas,Transportation,36.11,demo-checking
+2026-04-06,Steam,Entertainment,41.68,demo-checking
+2026-04-07,Trader Joe's,Groceries,55.37,demo-checking
+2026-04-07,Shell Gas,Transportation,33.97,demo-checking
+2026-04-07,Verizon Wireless,Utilities,85.0,demo-checking
+2026-04-08,Whole Foods,Groceries,86.87,demo-checking
+2026-04-08,Local Cafe,Dining,10.59,demo-checking
+2026-04-08,Chipotle,Dining,12.7,demo-checking
+2026-04-08,Chipotle,Dining,10.57,demo-checking
+2026-04-08,Hair Salon,Personal Care,43.1,demo-checking
+2026-04-08,Venmo Transfer,Miscellaneous,66.29,demo-checking
+2026-04-09,Whole Foods,Groceries,128.45,demo-checking
+2026-04-10,Thai Kitchen,Dining,43.57,demo-checking
+2026-04-10,Metro Transit,Transportation,3.6,demo-checking
+2026-04-10,Steam,Entertainment,58.69,demo-checking
+2026-04-11,Pizza Palace,Dining,35.19,demo-checking
+2026-04-11,Venmo Transfer,Miscellaneous,41.95,demo-checking
+2026-04-12,Uber,Transportation,10.49,demo-checking
+2026-04-12,Netflix,Subscriptions,15.49,demo-checking
+2026-04-13,Lyft,Transportation,25.79,demo-checking
+2026-04-13,Amazon,Shopping,26.38,demo-checking
+2026-04-14,Spotify,Subscriptions,11.99,demo-checking
+2026-04-15,Trader Joe's,Groceries,35.62,demo-checking
+2026-04-15,Trader Joe's,Groceries,35.07,demo-checking
+2026-04-15,Amazon,Shopping,116.52,demo-checking
+2026-04-15,Best Buy,Shopping,171.13,demo-checking
+2026-04-17,Safeway,Groceries,67.57,demo-checking
+2026-04-17,Lyft,Transportation,31.25,demo-checking
+2026-04-18,Metro Transit,Transportation,4.58,demo-checking
+2026-04-18,Best Buy,Shopping,176.72,demo-checking
+2026-04-18,Dental Clinic,Healthcare,132.19,demo-checking
+2026-04-19,Concert Tickets,Entertainment,138.89,demo-checking
+2026-04-20,Nike,Shopping,94.56,demo-checking
+2026-04-20,iCloud Storage,Subscriptions,2.99,demo-checking
+2026-04-21,Nike,Shopping,102.75,demo-checking
+2026-04-21,Dental Clinic,Healthcare,116.27,demo-checking
+2026-04-22,Lyft,Transportation,23.29,demo-checking
+2026-04-22,Bowling Alley,Entertainment,40.06,demo-checking
+2026-04-24,Safeway,Groceries,37.48,demo-checking
+2026-04-24,Uber,Transportation,31.74,demo-checking
+2026-04-25,Trader Joe's,Groceries,66.91,demo-checking
+2026-04-25,Bowling Alley,Entertainment,44.35,demo-checking
+2026-04-27,Local Cafe,Dining,10.85,demo-checking
+2026-04-27,Shell Gas,Transportation,34.73,demo-checking
+2026-04-28,Trader Joe's,Groceries,45.13,demo-checking
+2026-04-28,Whole Foods,Groceries,72.61,demo-checking
+2026-04-28,Whole Foods,Groceries,128.9,demo-checking
+2026-04-28,Thai Kitchen,Dining,44.9,demo-checking
+2026-04-29,Sephora,Personal Care,36.98,demo-checking
+2026-04-30,Lyft,Transportation,24.12,demo-checking
+2026-05-01,Sushi Place,Dining,42.52,demo-checking
+2026-05-01,Uber,Transportation,12.45,demo-checking
+2026-05-01,Best Buy,Shopping,236.63,demo-checking
+2026-05-01,Gym Membership,Subscriptions,45.0,demo-checking
+2026-05-03,PG&E Electric,Utilities,95.0,demo-checking
+2026-05-04,Trader Joe's,Groceries,22.09,demo-checking
+2026-05-04,Thai Kitchen,Dining,28.78,demo-checking
+2026-05-04,Thai Kitchen,Dining,19.72,demo-checking
+2026-05-04,Shell Gas,Transportation,31.32,demo-checking
+2026-05-05,Local Cafe,Dining,10.08,demo-checking
+2026-05-05,Sushi Place,Dining,41.94,demo-checking
+2026-05-05,Best Buy,Shopping,190.28,demo-checking
+2026-05-05,Urgent Care,Healthcare,181.17,demo-checking
+2026-05-05,Comcast Internet,Utilities,79.99,demo-checking
+2026-05-07,Verizon Wireless,Utilities,85.0,demo-checking
+2026-05-09,Chipotle,Dining,15.39,demo-checking
+2026-05-10,Best Buy,Shopping,899.0,demo-checking
+2026-05-12,Metro Transit,Transportation,4.07,demo-checking
+2026-05-12,Netflix,Subscriptions,15.49,demo-checking
+2026-05-13,Pizza Palace,Dining,37.12,demo-checking
+2026-05-14,Thai Kitchen,Dining,23.37,demo-checking
+2026-05-14,Lyft,Transportation,9.37,demo-checking
+2026-05-14,Spotify,Subscriptions,11.99,demo-checking
+2026-05-15,Uber,Transportation,30.99,demo-checking
+2026-05-15,Amazon,Shopping,55.45,demo-checking
+2026-05-16,Pizza Palace,Dining,18.03,demo-checking
+2026-05-17,Sushi Place,Dining,63.84,demo-checking
+2026-05-18,Sushi Place,Dining,54.88,demo-checking
+2026-05-18,Pizza Palace,Dining,18.5,demo-checking
+2026-05-19,Uber,Transportation,34.16,demo-checking
+2026-05-20,Shell Gas,Transportation,57.95,demo-checking
+2026-05-20,Metro Transit,Transportation,5.8,demo-checking
+2026-05-20,Target,Shopping,33.43,demo-checking
+2026-05-20,iCloud Storage,Subscriptions,2.99,demo-checking
+2026-05-21,ATM Withdrawal,Miscellaneous,97.0,demo-checking
+2026-05-22,Sushi Place,Dining,33.51,demo-checking
+2026-05-23,Target,Shopping,37.83,demo-checking
+2026-05-24,Uber,Transportation,28.2,demo-checking
+2026-05-24,Shell Gas,Transportation,58.04,demo-checking
+2026-05-25,Thai Kitchen,Dining,24.21,demo-checking
+2026-05-26,Sushi Place,Dining,44.54,demo-checking
+2026-05-27,Safeway,Groceries,29.55,demo-checking
+2026-05-27,Pizza Palace,Dining,39.11,demo-checking
+2026-05-28,Hair Salon,Personal Care,60.05,demo-checking
+2026-05-29,Uber,Transportation,9.98,demo-checking
+2026-05-30,Chipotle,Dining,11.83,demo-checking
+2026-05-30,Marriott Hotel,Travel,612.0,demo-checking
+2026-05-31,Trader Joe's,Groceries,21.75,demo-checking
+2026-05-31,Safeway,Groceries,62.34,demo-checking
+2026-05-31,Shell Gas,Transportation,45.16,demo-checking
+2026-05-31,Cleaning Service,Home,93.41,demo-checking
+2026-06-01,Pizza Palace,Dining,18.57,demo-checking
+2026-06-01,Chipotle,Dining,10.48,demo-checking
+2026-06-01,Gym Membership,Subscriptions,45.0,demo-checking
+2026-06-02,Safeway,Groceries,61.32,demo-checking
+2026-06-03,Target,Shopping,47.89,demo-checking
+2026-06-03,Amazon,Shopping,90.57,demo-checking
+2026-06-03,PG&E Electric,Utilities,95.0,demo-checking
+2026-06-04,Pizza Palace,Dining,20.36,demo-checking
+2026-06-04,Nike,Shopping,100.96,demo-checking
+2026-06-05,Home Depot,Home,86.45,demo-checking
+2026-06-05,Comcast Internet,Utilities,79.99,demo-checking
+2026-06-06,Whole Foods,Groceries,113.5,demo-checking
+2026-06-07,Local Cafe,Dining,12.42,demo-checking
+2026-06-07,Lyft,Transportation,21.09,demo-checking
+2026-06-07,Verizon Wireless,Utilities,85.0,demo-checking
+2026-06-08,Safeway,Groceries,70.08,demo-checking
+2026-06-08,Metro Transit,Transportation,3.77,demo-checking
+2026-06-08,ATM Withdrawal,Miscellaneous,43.01,demo-checking
+2026-06-09,Trader Joe's,Groceries,23.21,demo-checking
+2026-06-09,Nike,Shopping,40.15,demo-checking
+2026-06-11,Sushi Place,Dining,63.88,demo-checking
+2026-06-11,ATM Withdrawal,Miscellaneous,89.83,demo-checking
+2026-06-12,Trader Joe's,Groceries,31.44,demo-checking
+2026-06-12,Sushi Place,Dining,57.02,demo-checking
+2026-06-12,Netflix,Subscriptions,15.49,demo-checking
+2026-06-13,Trader Joe's,Groceries,67.37,demo-checking
+2026-06-14,Steam,Entertainment,55.92,demo-checking
+2026-06-14,Spotify,Subscriptions,11.99,demo-checking
+2026-06-15,Uber,Transportation,8.25,demo-checking
+2026-06-16,Whole Foods,Groceries,35.73,demo-checking
+2026-06-16,Local Cafe,Dining,10.57,demo-checking
+2026-06-16,Thai Kitchen,Dining,38.68,demo-checking
+2026-06-17,Sushi Place,Dining,29.46,demo-checking
+2026-06-18,Trader Joe's,Groceries,36.03,demo-checking
+2026-06-18,Thai Kitchen,Dining,42.8,demo-checking
+2026-06-19,Metro Transit,Transportation,4.43,demo-checking
+2026-06-19,AMC Theatres,Entertainment,16.97,demo-checking
+2026-06-20,AMC Theatres,Entertainment,23.69,demo-checking
+2026-06-20,Cleaning Service,Home,86.79,demo-checking
+2026-06-20,iCloud Storage,Subscriptions,2.99,demo-checking
+2026-06-21,ATM Withdrawal,Miscellaneous,80.05,demo-checking
+2026-06-22,Trader Joe's,Groceries,73.12,demo-checking
+2026-06-22,Uber,Transportation,26.03,demo-checking
+2026-06-22,Steam,Entertainment,53.48,demo-checking
+2026-06-23,Nike,Shopping,71.47,demo-checking
+2026-06-23,Home Depot,Home,107.46,demo-checking
+2026-06-24,Target,Shopping,35.6,demo-checking
+2026-06-25,Whole Foods,Groceries,42.08,demo-checking
+2026-06-25,Sushi Place,Dining,34.58,demo-checking
+2026-06-25,Shell Gas,Transportation,48.35,demo-checking
+2026-06-25,Shell Gas,Transportation,47.48,demo-checking
+2026-06-28,Trader Joe's,Groceries,80.65,demo-checking
+2026-06-29,Whole Foods,Groceries,85.62,demo-checking
+2026-06-29,Chipotle,Dining,15.44,demo-checking
+2026-06-29,Uber,Transportation,9.37,demo-checking
+2026-06-29,Steam,Entertainment,19.67,demo-checking
+2026-06-29,Venmo Transfer,Miscellaneous,64.49,demo-checking
+2026-06-30,Uber,Transportation,19.96,demo-checking
+2026-07-01,Gym Membership,Subscriptions,45.0,demo-checking
+2026-07-02,Lyft,Transportation,21.89,demo-checking
+2026-07-02,Uber,Transportation,28.05,demo-checking
+2026-07-02,Hair Salon,Personal Care,74.51,demo-checking
+2026-07-03,Safeway,Groceries,22.39,demo-checking
+2026-07-03,ATM Withdrawal,Miscellaneous,76.76,demo-checking
+2026-07-03,PG&E Electric,Utilities,95.0,demo-checking
+2026-07-04,Chipotle,Dining,16.88,demo-checking
+2026-07-04,CVS Pharmacy,Healthcare,31.54,demo-checking
+2026-07-05,Comcast Internet,Utilities,79.99,demo-checking
+2026-07-07,Thai Kitchen,Dining,38.39,demo-checking
+2026-07-07,Lyft,Transportation,11.99,demo-checking
+2026-07-07,Target,Shopping,45.5,demo-checking
+2026-07-07,Verizon Wireless,Utilities,85.0,demo-checking

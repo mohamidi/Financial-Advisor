@@ -9,7 +9,6 @@ class Settings(BaseSettings):
     # Supabase project connection info (Project Settings -> API / Database in the Supabase dashboard)
     database_url: str = ""
     supabase_url: str = ""
-    supabase_jwt_secret: str = ""
 
     plaid_client_id: str = ""
     plaid_secret: str = ""
