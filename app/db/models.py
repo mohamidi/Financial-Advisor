@@ -3,7 +3,7 @@ from datetime import date as date_type
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, DateTime, Numeric, String
+from sqlalchemy import CheckConstraint, Date, DateTime, Integer, Numeric, String, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -39,3 +39,45 @@ class Transaction(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     source: Mapped[str] = mapped_column(String, nullable=False, default="synthetic")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Profile(Base):
+    """A user's self-reported financial profile, built via the Day 3 onboarding interview.
+
+    Only holds facts a bank connection can't supply (age, marital status, dependents, risk
+    tolerance) plus two self-reported numbers (income, existing debt) that Plaid's Income and
+    Liabilities products could eventually supply directly (Phase 2 - not built). Fixed monthly
+    costs are deliberately NOT stored here - Day 4 computes them on demand from recurring
+    transactions instead of asking the user to estimate six numbers from memory.
+    """
+
+    __tablename__ = "profiles"
+    __table_args__ = (
+        CheckConstraint("marital_status IN ('single', 'married')", name="profiles_marital_status_check"),
+        CheckConstraint(
+            "risk_tolerance IN ('low', 'medium', 'high')", name="profiles_risk_tolerance_check"
+        ),
+    )
+
+    # One profile per user - user_id is the primary key, not a separate id + unique column.
+    # References auth.users.id (added via raw SQL in scripts/create_tables.py, same pattern as
+    # Transaction.user_id).
+    user_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True)
+    age: Mapped[int] = mapped_column(Integer, nullable=False)
+    marital_status: Mapped[str] = mapped_column(String, nullable=False)
+    monthly_income: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    dependents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    existing_debt: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=0, server_default=text("0")
+    )
+    risk_tolerance: Mapped[str] = mapped_column(String, nullable=False)
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
+    # server_default (not just default=) because rows can be written via the Data API/PostgREST
+    # (save_profile, on behalf of a real user) as well as via SQLAlchemy - a Python-side default
+    # only fires when SQLAlchemy itself builds the INSERT, so the database needs its own default
+    # too. updated_at also gets a trigger (see scripts/create_tables.py) since PostgREST UPDATEs
+    # bypass SQLAlchemy's onupdate= the same way.
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, server_default=text("now()"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utcnow, onupdate=utcnow, server_default=text("now()")
+    )

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     # Supabase project connection info (Project Settings -> API / Database in the Supabase dashboard)
     database_url: str = ""
     supabase_url: str = ""
+    supabase_publishable_key: str = ""
     supabase_secret_key: str = ""
     demo_user_id: str = ""
 
