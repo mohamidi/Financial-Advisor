@@ -13,7 +13,9 @@ Two lenses:
 - RECURRING costs (car payment, subscription): always judged against monthly surplus - they're about
   ongoing flow, not savings.
 
-Still deferred to a later increment: profile modifiers (existing debt, risk tolerance).
+Profile modifiers: existing debt can push a verdict ONE step stricter (capped) plus raise a flag;
+risk tolerance never moves the verdict - it only sets a tone hint for how the agent should phrase
+the explanation (a spending call shouldn't loosen just because someone tolerates investment risk).
 """
 
 from decimal import Decimal
@@ -39,7 +41,9 @@ def _money(x) -> Decimal:
     return Decimal(str(x)).quantize(Decimal("0.01"))
 
 
-def evaluate_affordability(cost, monthly_surplus, recurring: bool, available_balance=None, monthly_expenses=None) -> dict:
+def evaluate_affordability(cost, monthly_surplus, recurring: bool, available_balance=None,
+                           monthly_expenses=None, existing_debt=None, monthly_income=None,
+                           risk_tolerance=None) -> dict:
     """Decide yes/risky/no for a purchase, from the numbers alone.
 
     cost              - price of the thing (one-time) or the monthly amount (recurring)
@@ -47,15 +51,21 @@ def evaluate_affordability(cost, monthly_surplus, recurring: bool, available_bal
     recurring         - True for an ongoing monthly cost, False for a one-time purchase
     available_balance - cash minus credit-card bills, if known (None today; Plaid supplies it later)
     monthly_expenses  - average monthly spend, used as the reserve denominator when balance is known
+    existing_debt     - total debt balance from the profile (modifier: heavy debt → stricter + flag)
+    monthly_income    - net monthly income from the profile (the yardstick for "heavy" debt)
+    risk_tolerance    - 'low'|'medium'|'high' from the profile (tone hint only, never moves the verdict)
     """
     cost = _money(cost)
     surplus = _money(monthly_surplus)
 
     if recurring:
-        return _recurring(cost, surplus)
-    if available_balance is not None and monthly_expenses is not None:
-        return _one_time_with_balance(cost, surplus, _money(available_balance), _money(monthly_expenses))
-    return _one_time_cash_flow(cost, surplus)
+        base = _recurring(cost, surplus)
+    elif available_balance is not None and monthly_expenses is not None:
+        base = _one_time_with_balance(cost, surplus, _money(available_balance), _money(monthly_expenses))
+    else:
+        base = _one_time_cash_flow(cost, surplus)
+
+    return _apply_modifiers(base, existing_debt, monthly_income, risk_tolerance)
 
 
 def _recurring(cost: Decimal, surplus: Decimal) -> dict:
@@ -135,6 +145,52 @@ def _one_time_with_balance(cost: Decimal, surplus: Decimal, balance: Decimal, ex
     return _result(verdict, summary, reasoning, cost, surplus, False, flags,
                    {"basis": "available balance", "available_balance": f"{balance:.2f}",
                     "balance_after": f"{remaining:.2f}", "reserve_months": f"{reserve_months:.1f}"})
+
+
+# Verdict severity order; "stricter" moves toward "no". The only verdict-moving modifier is heavy
+# debt (one step), so the "cap at one step" agreed with the owner holds by construction.
+_ORDER = ["yes", "risky", "no"]
+
+
+def _stricter(verdict: str) -> str:
+    return _ORDER[min(_ORDER.index(verdict) + 1, len(_ORDER) - 1)]
+
+
+def _apply_modifiers(result: dict, existing_debt, monthly_income, risk_tolerance) -> dict:
+    flags = list(result["risk_flags"])
+
+    # Existing debt: heavy debt (> 3x monthly income) nudges the verdict one step stricter AND flags;
+    # merely meaningful debt (>= a month's income) only flags. Trivial debt is ignored so we don't nag.
+    if existing_debt is not None and monthly_income is not None:
+        debt = _money(existing_debt)
+        income = _money(monthly_income)
+        if income > 0 and debt > 0:
+            if debt > 3 * income:
+                result["verdict"] = _stricter(result["verdict"])
+                # The base summary described the pre-downgrade verdict - refresh it so summary and
+                # verdict don't contradict each other.
+                result["summary"] = "Your debt load pushes this to a more conservative call."
+                flags.append(
+                    f"You carry ${debt} in debt - more than 3x your monthly income - so I've weighted "
+                    f"this more conservatively; paying that down likely deserves priority."
+                )
+            elif debt >= income:
+                flags.append(
+                    f"You carry ${debt} in existing debt; putting money toward that may deserve "
+                    f"priority over this."
+                )
+
+    # Risk tolerance: tone hint for the agent's wording ONLY - it must not move the verdict.
+    if risk_tolerance == "low":
+        result["tone_for_agent"] = "Risk-averse user: frame cautiously and don't downplay the downsides."
+    elif risk_tolerance == "high":
+        result["tone_for_agent"] = (
+            "Risk-tolerant user: you may acknowledge their comfort with risk, but do NOT overturn or "
+            "soften the verdict itself."
+        )
+
+    result["risk_flags"] = flags
+    return result
 
 
 def _result(verdict, summary, reasoning, cost, surplus, recurring, flags, extra=None) -> dict:
