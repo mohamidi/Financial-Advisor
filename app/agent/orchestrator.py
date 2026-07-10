@@ -22,6 +22,7 @@ def run_agent_turn(
     tool_executors: dict,
     system: str,
     max_tool_rounds: int = MAX_TOOL_ROUNDS,
+    on_usage=None,
 ) -> list:
     """Sends `messages` to Claude, executing any tool calls, until Claude replies with text.
 
@@ -30,6 +31,10 @@ def run_agent_turn(
     so the caller can pass the same list straight back in on the next turn. Bounded to
     max_tool_rounds tool round-trips; on the last allowed call, tools are disabled so the model
     must produce a text answer instead of spinning up another round.
+
+    on_usage, if given, is called with each response's `.usage` object (once per API round-trip),
+    so the caller can accumulate per-user token spend (see app/services/usage.py). The orchestrator
+    itself stays free of any storage concern - it just hands the usage out.
     """
     for round_num in range(max_tool_rounds + 1):
         force_final = round_num == max_tool_rounds
@@ -41,6 +46,8 @@ def run_agent_turn(
             tool_choice={"type": "none"} if force_final else {"type": "auto"},
             messages=messages,
         )
+        if on_usage is not None:
+            on_usage(response.usage)
         messages.append({"role": "assistant", "content": response.content})
 
         if force_final or response.stop_reason != "tool_use":

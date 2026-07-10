@@ -6,11 +6,11 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.agent.advisor import ADVISOR_TOOLS, build_executors
-from app.agent.orchestrator import last_text, run_agent_turn
+from app.agent.orchestrator import MODEL, last_text, run_agent_turn
 from app.agent.prompts import build_advisor_system_prompt
 from app.auth.dependencies import AuthenticatedUser, get_current_user
 from app.config import settings
-from app.services import profiles
+from app.services import profiles, usage
 
 app = FastAPI(title="Financial Advisor Agent")
 
@@ -82,8 +82,13 @@ def chat(
 
     messages = [{"role": m.role, "content": m.text} for m in req.history]
     messages.append({"role": "user", "content": req.message})
-    messages = run_agent_turn(_claude, messages, ADVISOR_TOOLS, executors, system)
+
+    # Accumulate this turn's token spend across every tool round-trip and persist one row for it,
+    # attributed to the user - the foundation for Day 8's per-user daily-budget check.
+    acc = usage.UsageAccumulator()
+    messages = run_agent_turn(_claude, messages, ADVISOR_TOOLS, executors, system, on_usage=acc.add)
     reply = last_text(messages)
+    usage.log_usage(user.id, MODEL, acc)
 
     new_history = req.history + [
         ChatMessage(role="user", text=req.message),

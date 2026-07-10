@@ -41,6 +41,36 @@ class Transaction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class UsageEvent(Base):
+    """One row per user message-turn, summarizing the Claude token spend it cost (a turn can be
+    several API round-trips when tools are called - they're summed into one row here).
+
+    System telemetry, NOT user data: written on the ADMIN (DATABASE_URL) connection, never the
+    user's JWT, so a user can't write or delete their own counter to escape a budget. RLS is
+    enabled with NO authenticated policy (see scripts/create_tables.py), which is load-bearing:
+    Supabase's Data API auto-exposes every public table, so without a lockdown a user could read
+    everyone's usage via the Data API with their own JWT. Day 8's daily-budget check reads this
+    back (via app/services/usage.py) before each call.
+    """
+
+    __tablename__ = "usage_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # References auth.users.id (FK added via raw SQL in scripts/create_tables.py, same pattern as
+    # the other tables).
+    user_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    ts: Mapped[datetime] = mapped_column(DateTime, default=utcnow, server_default=text("now()"), index=True)
+    model: Mapped[str] = mapped_column(String, nullable=False)
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    # Cache token counts carried now (cheap) so the planned system-prompt prompt-caching optimization
+    # (CLAUDE.md "Token-cost controls") is observable the day it lands, without a schema change.
+    cache_read_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    cache_creation_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    # How many Claude API round-trips this turn took (1 = plain answer; >1 = tool calls).
+    api_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+
+
 class Profile(Base):
     """A user's self-reported financial profile, built via the Day 3 onboarding interview.
 

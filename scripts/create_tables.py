@@ -66,12 +66,20 @@ POLICIES = [
     ),
 ]
 
+# Tables with RLS ENABLED but no authenticated policy - the authenticated role (a user's JWT) can
+# neither read nor write them at all. usage_events is system telemetry written only on the admin
+# DATABASE_URL connection (which bypasses RLS); this lockdown is load-bearing because Supabase's
+# Data API auto-exposes every public table, so without it a user could GET /rest/v1/usage_events
+# with their own JWT and read everyone's token counts. See app/services/usage.py.
+LOCKDOWN_TABLES = ["usage_events"]
+
 # (table, column, referenced table) - added via raw SQL since auth.users isn't declared in our
 # own SQLAlchemy metadata (Supabase manages it), so create_all() can't resolve a DDL dependency
 # against it directly.
 FOREIGN_KEYS = [
     ("transactions", "user_id", "auth.users"),
     ("profiles", "user_id", "auth.users"),
+    ("usage_events", "user_id", "auth.users"),
 ]
 
 # create_all() only creates a column's default when it makes the column itself - it never
@@ -140,6 +148,17 @@ def main():
             conn.execute(text(f'DROP POLICY IF EXISTS "{policy_name}" ON {table};'))
             conn.execute(text(create_sql))
             print(f'Applied policy "{policy_name}" on {table}.')
+
+        for table in LOCKDOWN_TABLES:
+            row = conn.execute(
+                text("SELECT relrowsecurity FROM pg_class WHERE relname = :table"),
+                {"table": table},
+            ).first()
+            if not row or not row[0]:
+                conn.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;"))
+                print(f"Enabled RLS on {table} (locked down - no authenticated policy).")
+            else:
+                print(f"RLS already enabled on {table} (locked down - no authenticated policy).")
 
         for table, column, default_sql in COLUMN_DEFAULTS:
             conn.execute(text(f"ALTER TABLE {table} ALTER COLUMN {column} SET DEFAULT {default_sql};"))
