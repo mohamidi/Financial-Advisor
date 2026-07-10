@@ -206,3 +206,68 @@ def _result(verdict, summary, reasoning, cost, surplus, recurring, flags, extra=
     if extra:
         out.update(extra)
     return out
+
+
+# --- The Claude tool wrapper ---------------------------------------------------------------
+# The model supplies ONLY `cost` and `recurring`. Every financial figure that drives the verdict
+# (surplus, expenses, debt, risk tolerance) is pulled from the user's real data here in the
+# executor, so the model can't fudge the inputs to a deterministic decision - the same "identity/
+# facts are app-enforced, not model-asserted" principle behind save_profile's injected user_id.
+
+GET_AFFORDABILITY_VERDICT_SCHEMA = {
+    "name": "get_affordability_verdict",
+    "description": (
+        "Get a grounded yes/risky/no verdict on whether the user can afford a purchase. You supply "
+        "only the cost and whether it's a one-time purchase or a recurring monthly cost - every "
+        "financial figure behind the verdict (income, average spending, surplus, existing debt, "
+        "risk tolerance) is pulled automatically from the user's real data. If the user stated a "
+        "price, pass that exact number; otherwise pass your best estimate. The returned verdict is "
+        "deterministic: present it and its reasoning to the user and never soften a 'risky' or 'no'."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "cost": {
+                "type": "number",
+                "description": "Purchase amount in USD - the one-time total, or the monthly amount if recurring.",
+            },
+            "recurring": {
+                "type": "boolean",
+                "description": "True for an ongoing monthly cost (car payment, subscription); false for a one-time purchase.",
+            },
+            "description": {
+                "type": "string",
+                "description": "Short description of the purchase, e.g. 'trip to Japan'. Optional.",
+            },
+        },
+        "required": ["cost", "recurring"],
+    },
+}
+
+
+def run_get_affordability_verdict(user_id: str, jwt: str, tool_input: dict) -> dict:
+    # Local imports so the pure verdict logic above stays importable without pulling in the DB/HTTP
+    # service layer (keeps scripts/test_verdict.py dependency-light).
+    from app.services import profiles, transactions
+
+    profile = profiles.get_profile(user_id, jwt)
+    if not profile:
+        return {"error": "No profile found - the user needs to complete onboarding first."}
+
+    income = Decimal(str(profile["monthly_income"]))
+    txns = transactions.get_transactions(jwt)
+    avg_spend, _ = transactions.average_monthly_spend(txns)
+
+    result = evaluate_affordability(
+        cost=tool_input["cost"],
+        monthly_surplus=income - avg_spend,
+        recurring=bool(tool_input["recurring"]),
+        available_balance=None,  # Plaid supplies this in Phase 2; verdict falls back to cash-flow
+        monthly_expenses=avg_spend,
+        existing_debt=profile.get("existing_debt"),
+        monthly_income=income,
+        risk_tolerance=profile.get("risk_tolerance"),
+    )
+    if tool_input.get("description"):
+        result["purchase"] = tool_input["description"]
+    return result
