@@ -1,8 +1,52 @@
-from fastapi import Depends, FastAPI
+from typing import Literal
 
+import anthropic
+from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
+
+from app.agent.advisor import ADVISOR_TOOLS, build_executors
+from app.agent.orchestrator import last_text, run_agent_turn
+from app.agent.prompts import build_advisor_system_prompt
 from app.auth.dependencies import AuthenticatedUser, get_current_user
+from app.config import settings
+from app.services import profiles
 
 app = FastAPI(title="Financial Advisor Agent")
+
+# One shared Claude client - it carries no user state (all per-user scoping is via the tools' JWT),
+# so it's safe to reuse across requests rather than rebuilding it each time.
+_claude = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+
+# Cost guards (see CLAUDE.md "Token-cost controls"): bound a single message and how much history
+# is resent each turn, so one request can't carry tens of thousands of tokens of context.
+MAX_MESSAGE_CHARS = 4000
+MAX_HISTORY_MESSAGES = 50
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str
+
+
+class ChatRequest(BaseModel):
+    # The conversation so far, held by the client as plain text. Tool results / verdicts are NEVER
+    # here - they're recomputed fresh server-side each turn, so client-held history can't forge a
+    # verdict or reach another user's data (see CLAUDE.md Day 6 decision).
+    history: list[ChatMessage] = Field(default_factory=list)
+    message: str
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    history: list[ChatMessage]  # updated - includes this turn's user message + reply
+
+
+@app.get("/")
+def index():
+    # The single-page login + chat UI. Path is relative to the working directory the server runs
+    # from (project root); on Fly the frontend/ dir ships alongside the app.
+    return FileResponse("frontend/index.html")
 
 
 @app.get("/health")
@@ -13,3 +57,36 @@ def health():
 @app.get("/protected-ping")
 def protected_ping(user: AuthenticatedUser = Depends(get_current_user)):
     return {"message": f"hello {user.email or user.id}, you are authenticated"}
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(
+    req: ChatRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    authorization: str = Header(...),
+):
+    if not req.message.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Message is empty.")
+    if len(req.message) > MAX_MESSAGE_CHARS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Message is too long.")
+    if len(req.history) > MAX_HISTORY_MESSAGES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Conversation is too long - start a new one.")
+
+    # get_current_user already verified this token; re-read the raw string to pass to the tools,
+    # which use the user's own JWT for RLS-scoped data access.
+    jwt = authorization.removeprefix("Bearer ")
+
+    profile = profiles.get_profile(user.id, jwt)
+    system = build_advisor_system_prompt(profile)
+    executors = build_executors(user.id, jwt)
+
+    messages = [{"role": m.role, "content": m.text} for m in req.history]
+    messages.append({"role": "user", "content": req.message})
+    messages = run_agent_turn(_claude, messages, ADVISOR_TOOLS, executors, system)
+    reply = last_text(messages)
+
+    new_history = req.history + [
+        ChatMessage(role="user", text=req.message),
+        ChatMessage(role="assistant", text=reply),
+    ]
+    return ChatResponse(reply=reply, history=new_history)
