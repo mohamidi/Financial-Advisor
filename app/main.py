@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from app import onboarding
 from app.agent.advisor import ADVISOR_TOOLS, build_executors
 from app.agent.orchestrator import MODEL, last_text, run_agent_turn
 from app.agent.prompts import build_advisor_system_prompt
@@ -93,6 +94,44 @@ def health():
 @app.get("/protected-ping")
 def protected_ping(user: AuthenticatedUser = Depends(get_current_user)):
     return {"message": f"hello {user.email or user.id}, you are authenticated"}
+
+
+class OnboardingRequest(BaseModel):
+    # field -> raw string answer. Values are validated server-side (never trusted from the client) by
+    # the same parsers the terminal harness uses, so the web path can't bypass a rule the CLI enforces.
+    answers: dict[str, str] = Field(default_factory=dict)
+
+
+@app.get("/profile")
+def get_profile(user: AuthenticatedUser = Depends(get_current_user), authorization: str = Header(...)):
+    """The logged-in user's profile, or null if they haven't onboarded yet - lets the client route a
+    fresh login to onboarding vs. straight to chat."""
+    jwt = authorization.removeprefix("Bearer ")
+    return {"profile": profiles.get_profile(user.id, jwt)}
+
+
+@app.get("/onboarding/questions")
+def onboarding_questions(user: AuthenticatedUser = Depends(get_current_user)):
+    """The ordered intake questions - server is the single source of truth so the browser form and
+    the terminal harness ask exactly the same things."""
+    return {"questions": [{"field": q.field, "prompt": q.prompt} for q in onboarding.QUESTIONS]}
+
+
+@app.post("/onboarding")
+def submit_onboarding(
+    req: OnboardingRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    authorization: str = Header(...),
+):
+    """Validate all answers and write the profile. Deterministic - no Claude. On validation failure
+    returns 422 with {detail: {errors: {field: message}}} so the client can show each inline."""
+    jwt = authorization.removeprefix("Bearer ")
+    try:
+        parsed = onboarding.validate_answers(req.answers)
+    except onboarding.OnboardingValidationError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"errors": exc.errors})
+    saved = onboarding.save_onboarding_profile(user.id, jwt, parsed)
+    return {"profile": saved}
 
 
 @app.post("/chat", response_model=ChatResponse)

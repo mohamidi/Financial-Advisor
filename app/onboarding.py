@@ -22,6 +22,15 @@ class AnswerError(ValueError):
     """An answer failed validation. The message is written to be safe to show the user."""
 
 
+class OnboardingValidationError(Exception):
+    """One or more submitted answers failed validation. Carries a {field: message} map so a web
+    caller can show each error next to the right field."""
+
+    def __init__(self, errors: dict):
+        self.errors = errors
+        super().__init__(f"{len(errors)} field(s) failed validation")
+
+
 @dataclass
 class Question:
     field: str
@@ -83,7 +92,7 @@ def _parse_dependents(raw: str) -> int:
     try:
         n = int(raw.strip())
     except ValueError:
-        raise AnswerError("Please enter a whole number, or press Enter for 0.")
+        raise AnswerError("Please enter a whole number, or leave blank for 0.")
     if n < 0:
         raise AnswerError("Can't be negative.")
     return n
@@ -96,7 +105,13 @@ def _parse_debt(raw: str) -> str:
 
 
 def _parse_notes(raw: str) -> str:
-    return raw.strip()
+    value = raw.strip()
+    # Notes is the one free-text field, and it's hydrated into the advisor's system prompt every
+    # turn - cap it so a huge value can't bloat (and cost) every future request. Now that it's
+    # web-submittable (not just terminal/demo), that's a real input surface to bound.
+    if len(value) > 500:
+        raise AnswerError("Please keep this under 500 characters.")
+    return value
 
 
 QUESTIONS = [
@@ -116,21 +131,38 @@ QUESTIONS = [
     ),
     Question(
         "dependents",
-        "How many financial dependents do you have? (press Enter for 0)",
+        "How many financial dependents do you have? (leave blank for 0)",
         _parse_dependents,
     ),
     Question(
         "existing_debt",
         "Roughly how much total debt do you have across everything - loans, credit cards, etc.? "
-        "(press Enter for 0)",
+        "(leave blank for 0)",
         _parse_debt,
     ),
     Question(
         "notes",
-        "Anything else about your finances you'd like on record? (press Enter to skip)",
+        "Anything else about your finances you'd like on record? (leave blank to skip)",
         _parse_notes,
     ),
 ]
+
+
+def validate_answers(raw: dict) -> dict:
+    """Validate raw answers (field -> string) with each question's own parser and return the parsed,
+    stored-ready values. Server-authoritative: the same parsers the terminal harness uses, so the
+    web path can't bypass a rule the CLI enforces. Raises OnboardingValidationError({field: message})
+    if any field fails, so every problem is reported at once rather than one round-trip at a time.
+    """
+    parsed, errors = {}, {}
+    for q in QUESTIONS:
+        try:
+            parsed[q.field] = q.parse(raw.get(q.field, "") or "")
+        except AnswerError as exc:
+            errors[q.field] = str(exc)
+    if errors:
+        raise OnboardingValidationError(errors)
+    return parsed
 
 
 def save_onboarding_profile(user_id: str, jwt: str, answers: dict) -> dict:

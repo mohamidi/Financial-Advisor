@@ -22,6 +22,10 @@
   .primary:disabled { opacity:.5; cursor:default; }
   .err { color:#ff6b6b; font-size:13px; margin-top:12px; min-height:16px; }
 
+  /* Onboarding - a taller form than login, so it scrolls within the viewport instead of clipping. */
+  .scroll { width:100%; max-width:480px; margin:0 auto; padding:24px; max-height:100vh; overflow-y:auto; }
+  .qerr { color:#ff6b6b; font-size:12px; min-height:14px; margin-top:4px; }
+
   /* Chat */
   #chat { display:none; flex-direction:column; width:100%; max-width:720px; height:100vh;
           margin:0 auto; }
@@ -60,6 +64,18 @@
   </div>
 </div>
 
+<!-- Shown after login only when the user has no profile yet. Fields are built from
+     GET /onboarding/questions so the server stays the single source of truth. -->
+<div id="onboarding" class="scroll" style="display:none;">
+  <div class="card">
+    <h1>Set up your profile</h1>
+    <p class="sub">A few quick questions so I can give you advice grounded in your real numbers. This stays private to you.</p>
+    <div id="obForm"></div>
+    <button id="obSubmit" class="primary">Save &amp; continue</button>
+    <div id="obErr" class="err"></div>
+  </div>
+</div>
+
 <div id="chat">
   <div class="top">
     <h1>Financial Advisor</h1>
@@ -84,6 +100,13 @@
   let history = [];
 
   const $ = (id) => document.getElementById(id);
+  const authHeader = () => ({ "Authorization": `Bearer ${accessToken}` });
+
+  function show(view) {
+    $("login").style.display = view === "login" ? "flex" : "none";
+    $("onboarding").style.display = view === "onboarding" ? "block" : "none";
+    $("chat").style.display = view === "chat" ? "flex" : "none";
+  }
 
   function escapeHtml(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -117,13 +140,77 @@
       if (!res.ok) { $("loginErr").textContent = "Login failed - check your email and password."; return; }
       const data = await res.json();
       accessToken = data.access_token;
-      $("login").style.display = "none";
-      $("chat").style.display = "flex";
-      $("input").focus();
+      await routeAfterAuth();
     } catch (e) {
       $("loginErr").textContent = "Network error - please try again.";
     } finally {
       $("loginBtn").disabled = false;
+    }
+  }
+
+  // A user with a profile goes straight to chat; a fresh account goes to onboarding first.
+  async function routeAfterAuth() {
+    try {
+      const res = await fetch("/profile", { headers: authHeader() });
+      if (res.status === 401) { logout(); return; }
+      const data = await res.json();
+      if (data.profile) { show("chat"); $("input").focus(); return; }
+    } catch (e) { /* fall through to onboarding - the write upserts, so it's safe either way */ }
+    await loadOnboarding();
+    show("onboarding");
+  }
+
+  let obQuestions = [];
+  async function loadOnboarding() {
+    const res = await fetch("/onboarding/questions", { headers: authHeader() });
+    if (res.status === 401) { logout(); return; }
+    obQuestions = (await res.json()).questions;
+    const form = $("obForm");
+    form.innerHTML = "";
+    for (const q of obQuestions) {
+      const label = document.createElement("label");
+      label.setAttribute("for", "ob_" + q.field);
+      label.textContent = q.prompt;
+      const input = document.createElement("input");
+      input.id = "ob_" + q.field;
+      input.autocomplete = "off";
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") submitOnboarding(); });
+      const err = document.createElement("div");
+      err.className = "qerr";
+      err.id = "oberr_" + q.field;
+      form.append(label, input, err);
+    }
+  }
+
+  async function submitOnboarding() {
+    obQuestions.forEach((q) => { $("oberr_" + q.field).textContent = ""; });
+    $("obErr").textContent = "";
+    const answers = {};
+    obQuestions.forEach((q) => { answers[q.field] = $("ob_" + q.field).value; });
+    $("obSubmit").disabled = true;
+    try {
+      const res = await fetch("/onboarding", {
+        method: "POST",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      });
+      if (res.status === 401) { logout(); return; }
+      if (res.status === 422) {
+        const errors = (await res.json()).detail.errors || {};
+        for (const [field, msg] of Object.entries(errors)) {
+          const el = $("oberr_" + field);
+          if (el) el.textContent = msg;
+        }
+        $("obErr").textContent = "Please fix the highlighted fields.";
+        return;
+      }
+      if (!res.ok) { $("obErr").textContent = "Something went wrong. Please try again."; return; }
+      show("chat");
+      $("input").focus();
+    } catch (e) {
+      $("obErr").textContent = "Network error - please try again.";
+    } finally {
+      $("obSubmit").disabled = false;
     }
   }
 
@@ -155,14 +242,16 @@
   function logout() {
     accessToken = null;
     history = [];
-    $("chat").style.display = "none";
-    $("login").style.display = "flex";
+    show("login");
     $("messages").innerHTML = '<div class="hint">Ask me things like "can I afford a $3,000 trip?" or "how much did I spend on dining?"</div>';
+    $("obForm").innerHTML = "";
+    $("obErr").textContent = "";
     $("password").value = "";
   }
 
   $("loginBtn").addEventListener("click", login);
   $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+  $("obSubmit").addEventListener("click", submitOnboarding);
   $("sendBtn").addEventListener("click", send);
   $("input").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
   $("logoutBtn").addEventListener("click", logout);
