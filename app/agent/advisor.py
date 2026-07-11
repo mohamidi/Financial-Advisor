@@ -20,14 +20,25 @@ ADVISOR_TOOLS = [
 ]
 
 
-def build_executors(user_id: str, jwt: str) -> dict:
+def build_executors(user_id: str, jwt: str, verdict_sink: list | None = None) -> dict:
     """Map of tool name -> callable(tool_input) -> result, bound to this user's identity + JWT.
 
     Built fresh per request (never a shared global) so one user's identity can never leak into
     another's tool calls - the same per-request-scoping discipline as the PostgREST client.
+
+    verdict_sink, if given, collects each get_affordability_verdict result so the caller (the /chat
+    endpoint) can return the structured verdict to the UI for the verdict card. This is display-only,
+    server->browser: the verdict is still recomputed server-side every turn and never trusted back
+    from client history, so surfacing it here doesn't weaken the "no client-forged verdict" rule.
     """
+    def run_verdict(ti):
+        result = verdict.run_get_affordability_verdict(user_id, jwt, ti)
+        if verdict_sink is not None:
+            verdict_sink.append(result)
+        return result
+
     return {
-        "get_affordability_verdict": lambda ti: verdict.run_get_affordability_verdict(user_id, jwt, ti),
+        "get_affordability_verdict": run_verdict,
         "aggregate_spending": lambda ti: aggregate_spending.run_aggregate_spending(user_id, jwt, ti),
         "compute_discretionary_balance": lambda ti: compute_discretionary_balance.run_compute_discretionary_balance(user_id, jwt, ti),
         "project_cash_flow": lambda ti: project_cash_flow.run_project_cash_flow(user_id, jwt, ti),

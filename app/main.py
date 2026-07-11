@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from decimal import Decimal
 from typing import Literal
 
 import anthropic
@@ -13,7 +14,7 @@ from app.agent.orchestrator import MODEL, last_text, run_agent_turn
 from app.agent.prompts import build_advisor_system_prompt
 from app.auth.dependencies import AuthenticatedUser, get_current_user
 from app.config import settings
-from app.services import profiles, usage
+from app.services import profiles, transactions, usage
 
 # Secrets the server genuinely can't function without. Validated at startup (below) so a
 # misconfigured deploy fails fast with a clear message, instead of booting fine and then throwing a
@@ -77,6 +78,10 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     history: list[ChatMessage]  # updated - includes this turn's user message + reply
+    # Structured verdict for THIS turn's card, if the advisor ran an affordability check. Present so
+    # the UI can render the verdict card from real numbers rather than parsing them out of prose.
+    # Display-only (server->browser); never sent back up in history, so it can't be client-forged.
+    verdict: dict | None = None
 
 
 @app.get("/")
@@ -170,7 +175,8 @@ def chat(
 
     profile = profiles.get_profile(user.id, jwt)
     system = build_advisor_system_prompt(profile)
-    executors = build_executors(user.id, jwt)
+    verdict_sink: list = []
+    executors = build_executors(user.id, jwt, verdict_sink=verdict_sink)
 
     messages = [{"role": m.role, "content": m.text} for m in req.history]
     messages.append({"role": "user", "content": req.message})
@@ -186,4 +192,60 @@ def chat(
         ChatMessage(role="user", text=req.message),
         ChatMessage(role="assistant", text=reply),
     ]
-    return ChatResponse(reply=reply, history=new_history)
+    return ChatResponse(reply=reply, history=new_history, verdict=_verdict_block(verdict_sink))
+
+
+def _verdict_block(verdict_sink: list) -> dict | None:
+    """Curate the last affordability verdict computed this turn into the fields the verdict card
+    shows. Returns None if no verdict ran, or if it errored (e.g. no profile yet)."""
+    if not verdict_sink:
+        return None
+    v = verdict_sink[-1]
+    if "error" in v:
+        return None
+    return {
+        "verdict": v["verdict"],
+        "summary": v["summary"],
+        "reasoning": v["reasoning"],
+        "cost": v["cost"],
+        "monthly_surplus": v["monthly_surplus"],
+        "months_to_absorb": v.get("months_to_absorb"),
+        "expense_type": v.get("expense_type"),
+        "risk_flags": v.get("risk_flags", []),
+        "purchase": v.get("purchase"),
+    }
+
+
+@app.get("/summary")
+def summary(user: AuthenticatedUser = Depends(get_current_user), authorization: str = Header(...)):
+    """Everything the 'Your numbers' dashboard needs, computed fresh from the user's real data:
+    monthly surplus, income, average spend, spending by category (avg/month), a forward cumulative
+    surplus projection, and the profile. Read-only, no Claude. Same service seams the finance tools
+    use, so Plaid data flows in later with no change here."""
+    jwt = authorization.removeprefix("Bearer ")
+    profile = profiles.get_profile(user.id, jwt)
+    if not profile:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No profile yet - complete onboarding first.")
+
+    income = Decimal(str(profile["monthly_income"]))
+    txns = transactions.get_transactions(jwt)
+    avg_spend, _ = transactions.average_monthly_spend(txns)
+    surplus = (income - avg_spend).quantize(Decimal("0.01"))
+    by_cat = transactions.average_monthly_by_category(txns)
+
+    # Cumulative net surplus over the next 6 months (definition A: no account balance yet, so this is
+    # forward flow from today, matching project_cash_flow). Plaid adds a real starting balance later.
+    projection = [
+        {"month": m, "cumulative": f"{(surplus * m):.2f}"} for m in range(1, 7)
+    ]
+
+    return {
+        "monthly_income": f"{income:.2f}",
+        "avg_spend": f"{avg_spend:.2f}",
+        "monthly_surplus": f"{surplus:.2f}",
+        "spending_by_category": [
+            {"category": cat, "amount": f"{amt:.2f}"} for cat, amt in by_cat.items()
+        ],
+        "projection": projection,
+        "profile": profile,
+    }

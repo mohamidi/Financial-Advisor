@@ -86,6 +86,20 @@ def spending_by_category(txns) -> dict:
     return dict(sorted(out.items(), key=lambda kv: kv[1], reverse=True))
 
 
+def average_monthly_by_category(txns) -> dict:
+    """Average spend per category PER complete month (category -> Decimal, cents-quantized, sorted
+    desc). Same complete-months window as average_monthly_spend, so the per-category figures sum to
+    the same monthly average - what the dashboard's 'spending by category' needs."""
+    months = complete_months(txns)
+    if not months:
+        return {}
+    month_set = set(months)
+    in_scope = [t for t in txns if (t.date.year, t.date.month) in month_set]
+    n = Decimal(len(months))
+    per_cat = spending_by_category(in_scope)
+    return {cat: (total / n).quantize(Decimal("0.01")) for cat, total in per_cat.items()}
+
+
 def average_monthly_spend(txns) -> tuple[Decimal, list[tuple[int, int]]]:
     """(average total spend per complete month, list of complete months used). Averaged over
     complete months only - see complete_months()."""
