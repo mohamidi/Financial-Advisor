@@ -10,9 +10,11 @@ so the user's JWT can't reach it through the Data API either.
 """
 
 from dataclasses import dataclass
+from datetime import timedelta
 
 from sqlalchemy import func, select
 
+from app.config import settings
 from app.db.database import SessionLocal
 from app.db.models import UsageEvent, utcnow
 
@@ -63,10 +65,12 @@ def log_usage(user_id: str, model: str, acc: UsageAccumulator) -> None:
 def usage_today(user_id: str) -> dict:
     """Today's (UTC) token totals for a user - the read Day 8's pre-call budget check builds on.
 
-    ts is stored naive-but-UTC (models.utcnow), so comparing its calendar date to the UTC 'today'
-    keeps the day boundary consistent regardless of server timezone.
+    ts is stored naive-but-UTC (models.utcnow). We bound on `ts >= midnight-UTC-today` rather than
+    `func.date(ts) == today`: a ts is never in the future, so the range means exactly "today", and
+    unlike func.date() it's sargable - Postgres can use the ts index instead of computing a function
+    over every candidate row. Same range-predicate shape the rate limit uses.
     """
-    today_utc = utcnow().date()  # utcnow() is naive-but-UTC, so its .date() is the UTC calendar date
+    start_of_day = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)  # midnight UTC today, naive
     with SessionLocal() as db:
         row = db.execute(
             select(
@@ -75,7 +79,44 @@ def usage_today(user_id: str) -> dict:
                 func.coalesce(func.sum(UsageEvent.api_calls), 0),
             ).where(
                 UsageEvent.user_id == user_id,
-                func.date(UsageEvent.ts) == today_utc,
+                UsageEvent.ts >= start_of_day,
             )
         ).one()
     return {"input_tokens": int(row[0]), "output_tokens": int(row[1]), "api_calls": int(row[2])}
+
+
+def over_daily_budget(user_id: str, limit_tokens: int | None = None) -> tuple[bool, int, int]:
+    """(exceeded, tokens_used_today, limit) for the per-user daily token cap.
+
+    Sums today's input+output tokens against the limit (settings.daily_token_budget_per_user unless
+    overridden - the override exists for tests). Checked BEFORE each call, and usage_today only
+    reflects COMPLETED turns, so a single in-flight turn can tip a user just over the line and it's
+    the NEXT call that gets blocked. That's the right behavior for a soft daily cap: never truncate a
+    reply mid-generation, just refuse to start a new turn once the day's budget is spent.
+    """
+    limit = settings.daily_token_budget_per_user if limit_tokens is None else limit_tokens
+    totals = usage_today(user_id)
+    used = totals["input_tokens"] + totals["output_tokens"]
+    return used >= limit, used, limit
+
+
+def messages_last_hour(user_id: str) -> int:
+    """Count of completed turns (usage_events rows) for a user in the trailing hour. Reusing the
+    Day 7 table means the rate limit needs no separate counter - the same COUNT works across every
+    stateless app instance, which an in-process limiter could not."""
+    cutoff = utcnow() - timedelta(hours=1)
+    with SessionLocal() as db:
+        return db.execute(
+            select(func.count())
+            .select_from(UsageEvent)
+            .where(UsageEvent.user_id == user_id, UsageEvent.ts >= cutoff)
+        ).scalar_one()
+
+
+def over_rate_limit(user_id: str, limit: int | None = None) -> tuple[bool, int, int]:
+    """(exceeded, messages_in_last_hour, limit) for the per-user messages/hour cap. Same soft-boundary
+    behavior as the budget check: the in-flight turn isn't counted until it completes, so this blocks
+    starting a NEW turn once the trailing-hour count has reached the limit."""
+    limit = settings.max_messages_per_hour_per_user if limit is None else limit
+    count = messages_last_hour(user_id)
+    return count >= limit, count, limit

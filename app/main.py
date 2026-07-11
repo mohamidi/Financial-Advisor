@@ -1,7 +1,9 @@
+from contextlib import asynccontextmanager
 from typing import Literal
 
 import anthropic
 from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -12,7 +14,41 @@ from app.auth.dependencies import AuthenticatedUser, get_current_user
 from app.config import settings
 from app.services import profiles, usage
 
-app = FastAPI(title="Financial Advisor Agent")
+# Secrets the server genuinely can't function without. Validated at startup (below) so a
+# misconfigured deploy fails fast with a clear message, instead of booting fine and then throwing a
+# cryptic auth/HTTP error on the first real request. (demo_user_id and the Plaid keys aren't here -
+# they're only needed by scripts / Phase 2, not to serve /chat.)
+REQUIRED_SETTINGS = ["anthropic_api_key", "supabase_url", "supabase_publishable_key", "database_url"]
+
+
+@asynccontextmanager
+async def lifespan(app: "FastAPI"):
+    missing = [name for name in REQUIRED_SETTINGS if not getattr(settings, name)]
+    if missing:
+        raise RuntimeError(
+            f"Missing required configuration: {', '.join(missing)}. "
+            f"Set them in .env (local) or as host secrets (deploy) before starting the server."
+        )
+    yield
+
+
+app = FastAPI(title="Financial Advisor Agent", lifespan=lifespan)
+
+
+def _parse_origins(raw: str) -> list[str]:
+    """Comma-separated allowlist -> clean list; blanks dropped. Empty string -> [] (same-origin only)."""
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+# Explicit CORS allowlist. With an empty list the browser grants no cross-origin access at all (the
+# secure default for our same-origin SPA); a separately-hosted frontend is added via
+# settings.cors_allowed_origins, never "*". Only the methods/headers /chat actually uses are allowed.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_parse_origins(settings.cors_allowed_origins),
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 # One shared Claude client - it carries no user state (all per-user scoping is via the tools' JWT),
 # so it's safe to reuse across requests rather than rebuilding it each time.
@@ -71,6 +107,23 @@ def chat(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Message is too long.")
     if len(req.history) > MAX_HISTORY_MESSAGES:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Conversation is too long - start a new one.")
+
+    # Per-user rate limit + daily budget: both checked here, BEFORE any Claude call, so a throttled
+    # or over-quota request costs nothing.
+    rate_exceeded, count, rate_limit = usage.over_rate_limit(user.id)
+    if rate_exceeded:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Too many messages ({count} in the last hour, limit {rate_limit}). Please slow down and try again shortly.",
+            headers={"Retry-After": "3600"},
+        )
+
+    exceeded, used, limit = usage.over_daily_budget(user.id)
+    if exceeded:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Daily usage limit reached ({used:,} of {limit:,} tokens). Please try again tomorrow.",
+        )
 
     # get_current_user already verified this token; re-read the raw string to pass to the tools,
     # which use the user's own JWT for RLS-scoped data access.
