@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import './Numbers.css'
 import { money } from '../lib/format'
-import * as api from '../lib/api'
 
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s)
 
@@ -18,20 +17,22 @@ function projectionPaths(projection) {
   return { line, area, endX: xs[last].toFixed(1), endY: ys[last].toFixed(1), end: pts[last] }
 }
 
-export default function Numbers() {
-  const [summary, setSummary] = useState(null)
-  const [error, setError] = useState(false)
-
+// `summary` is a cache owned by App and prefetched in the background right after login/onboarding
+// (see App.jsx loadSummary), so in the common case this renders instantly with no loading flash.
+// The effect below is only a fallback for the rare case this screen is reached before that prefetch
+// resolves (or it errored) — it does not re-fetch on every visit.
+export default function Numbers({ summary, loading, error, onRetry }) {
   useEffect(() => {
-    api.getSummary()
-      .then(setSummary)
-      .catch((e) => { if (e.status !== 401) setError(true) })
-  }, [])
+    if (!summary && !loading && !error) onRetry()
+  }, [summary, loading, error, onRetry])
 
   if (error) {
     return (
       <div className="numbers">
-        <div className="hold num-state">Couldn’t load your numbers. Please try again.</div>
+        <div className="hold num-state">
+          Couldn’t load your numbers.{' '}
+          <button className="num-retry" onClick={onRetry}>Try again</button>
+        </div>
       </div>
     )
   }

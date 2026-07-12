@@ -67,6 +67,60 @@ def run_agent_turn(
     return messages
 
 
+def stream_agent_turn(
+    client: anthropic.Anthropic,
+    messages: list,
+    tools: list,
+    tool_executors: dict,
+    system: str,
+    max_tool_rounds: int = MAX_TOOL_ROUNDS,
+    on_usage=None,
+):
+    """Streaming twin of run_agent_turn, for SSE. Same tool-round-trip loop and the same
+    max_tool_rounds/on_usage contract, but each round uses the streaming API and yields events as
+    they happen instead of returning only once a full reply is ready:
+      {"type": "text", "text": "..."}  - a chunk of assistant text, in generation order
+      {"type": "tool", "name": "..."}  - a tool the model is about to call (round has one per tool)
+
+    Mutates `messages` in place exactly like run_agent_turn (appends every assistant/tool_result
+    turn), so callers should exhaust this generator with a `for` loop and then read `messages` /
+    call last_text(messages) - there's no separate return value.
+    """
+    for round_num in range(max_tool_rounds + 1):
+        force_final = round_num == max_tool_rounds
+        with client.messages.stream(
+            model=MODEL,
+            max_tokens=1024,
+            system=system,
+            tools=tools,
+            tool_choice={"type": "none"} if force_final else {"type": "auto"},
+            messages=messages,
+        ) as stream:
+            for event in stream:
+                if event.type == "content_block_delta" and event.delta.type == "text_delta":
+                    yield {"type": "text", "text": event.delta.text}
+            response = stream.get_final_message()
+
+        if on_usage is not None:
+            on_usage(response.usage)
+        messages.append({"role": "assistant", "content": response.content})
+
+        if force_final or response.stop_reason != "tool_use":
+            return
+
+        tool_results = []
+        for block in response.content:
+            if block.type != "tool_use":
+                continue
+            yield {"type": "tool", "name": block.name}
+            executor = tool_executors[block.name]
+            result = executor(block.input)
+            tool_results.append(
+                {"type": "tool_result", "tool_use_id": block.id, "content": str(result)}
+            )
+        messages.append({"role": "user", "content": tool_results})
+
+
 def last_text(messages: list) -> str:
     """Extracts the text of the most recent assistant message, for printing to the user."""
     for message in reversed(messages):

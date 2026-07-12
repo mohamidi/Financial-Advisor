@@ -79,7 +79,16 @@ export async function submitOnboarding(answers) {
   return (await r.json()).profile
 }
 
-export async function sendChat(history, message) {
+// Streams a reply as Server-Sent Events. Native EventSource can't send an Authorization header or
+// a POST body, so this reads the response body with fetch's own stream reader and parses the
+// `data: {...}\n\n` framing by hand. Rejections that happen before the model ever runs (bad input,
+// rate limit, budget) still come back as a normal non-streaming JSON error response — handled the
+// same way as before, before we ever touch r.body.
+//
+// callbacks.onText(chunk) fires for each piece of reply text, in order; callbacks.onTool(name)
+// fires when the advisor is about to call a tool. Resolves with the terminal { reply, history,
+// verdict } once the server sends its "done" event.
+export async function streamChat(history, message, { onText, onTool } = {}) {
   const r = await api('/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -91,8 +100,41 @@ export async function sendChat(history, message) {
     e.detail = (await r.json()).detail
     throw e
   }
-  if (!r.ok) throw new Error('chat')
-  return await r.json() // { reply, history, verdict }
+  if (!r.ok) {
+    const e = new Error('chat')
+    e.status = r.status
+    throw e
+  }
+
+  const reader = r.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  let result = null
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    let sep
+    while ((sep = buf.indexOf('\n\n')) !== -1) {
+      const chunk = buf.slice(0, sep)
+      buf = buf.slice(sep + 2)
+      const line = chunk.split('\n').find((l) => l.startsWith('data: '))
+      if (!line) continue
+      const event = JSON.parse(line.slice(6))
+      if (event.type === 'text') onText?.(event.text)
+      else if (event.type === 'tool') onTool?.(event.name)
+      else if (event.type === 'error') {
+        const e = new Error(event.detail || 'stream error')
+        e.status = 500
+        throw e
+      } else if (event.type === 'done') {
+        result = event
+      }
+    }
+  }
+  if (!result) throw new Error('chat stream ended without a result')
+  return result // { reply, history, verdict }
 }
 
 export async function getSummary() {

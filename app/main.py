@@ -1,3 +1,4 @@
+import json
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from pathlib import Path
@@ -6,13 +7,13 @@ from typing import Literal
 import anthropic
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import onboarding
 from app.agent.advisor import ADVISOR_TOOLS, build_executors
-from app.agent.orchestrator import MODEL, last_text, run_agent_turn
+from app.agent.orchestrator import MODEL, last_text, stream_agent_turn
 from app.agent.prompts import build_advisor_system_prompt
 from app.auth.dependencies import AuthenticatedUser, get_current_user
 from app.config import settings
@@ -86,6 +87,8 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
+    # Shape of the final SSE "done" event's data (see /chat below) - kept as a model for docs/tests
+    # even though the endpoint itself streams rather than returning this directly.
     reply: str
     history: list[ChatMessage]  # updated - includes this turn's user message + reply
     # Structured verdict for THIS turn's card, if the advisor ran an affordability check. Present so
@@ -166,12 +169,30 @@ def submit_onboarding(
     return {"profile": saved}
 
 
-@app.post("/chat", response_model=ChatResponse)
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
+
+
+@app.post("/chat")
 def chat(
     req: ChatRequest,
     user: AuthenticatedUser = Depends(get_current_user),
     authorization: str = Header(...),
 ):
+    """Streams the reply as Server-Sent Events instead of waiting for the full turn to finish.
+    Every check that can reject the request outright (bad input, rate limit, budget) still runs
+    HERE, synchronously, before any stream is opened - so a throttled/over-quota/invalid request
+    gets a normal JSON error response with the right status code, exactly as before, and never
+    starts a Claude call. Only once a turn is actually going to run do we switch to streaming.
+
+    Event shapes on the wire (each a `data: <json>\\n\\n` line):
+      {"type": "text", "text": "..."}   - a chunk of assistant reply text, in order
+      {"type": "tool", "name": "..."}   - the advisor is about to call a tool (e.g. computing a verdict)
+      {"type": "done", "reply", "history", "verdict"}  - terminal event, same shape as the old JSON body
+      {"type": "error", "detail": "..."} - the turn failed after streaming had already started
+    Native EventSource can't send an Authorization header or a POST body, so the client reads this
+    with fetch() + a stream reader instead - see frontend/src/lib/api.js streamChat().
+    """
     if not req.message.strip():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Message is empty.")
     if len(req.message) > MAX_MESSAGE_CHARS:
@@ -209,17 +230,34 @@ def chat(
     messages.append({"role": "user", "content": req.message})
 
     # Accumulate this turn's token spend across every tool round-trip and persist one row for it,
-    # attributed to the user - the foundation for Day 8's per-user daily-budget check.
+    # attributed to the user - unchanged from the non-streaming version, just fed from the streaming
+    # loop's on_usage callback instead.
     acc = usage.UsageAccumulator()
-    messages = run_agent_turn(_claude, messages, ADVISOR_TOOLS, executors, system, on_usage=acc.add)
-    reply = last_text(messages)
-    usage.log_usage(user.id, MODEL, acc)
 
-    new_history = req.history + [
-        ChatMessage(role="user", text=req.message),
-        ChatMessage(role="assistant", text=reply),
-    ]
-    return ChatResponse(reply=reply, history=new_history, verdict=_verdict_block(verdict_sink))
+    def event_stream():
+        try:
+            for event in stream_agent_turn(_claude, messages, ADVISOR_TOOLS, executors, system, on_usage=acc.add):
+                yield _sse(event)
+            reply = last_text(messages)
+            new_history = req.history + [
+                ChatMessage(role="user", text=req.message),
+                ChatMessage(role="assistant", text=reply),
+            ]
+            yield _sse({
+                "type": "done",
+                "reply": reply,
+                "history": [m.model_dump() for m in new_history],
+                "verdict": _verdict_block(verdict_sink),
+            })
+        except Exception:
+            # The 200 + SSE headers are already on the wire by the time a round can fail, so a real
+            # HTTP error status is no longer possible - tell the client via an in-band event instead.
+            # Whatever tokens were already spent on the failed turn are still logged below.
+            yield _sse({"type": "error", "detail": "Something went wrong. Please try again."})
+        finally:
+            usage.log_usage(user.id, MODEL, acc)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 def _verdict_block(verdict_sink: list) -> dict | None:
