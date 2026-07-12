@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from pathlib import Path
 from typing import Literal
 
 import anthropic
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import onboarding
@@ -52,6 +54,14 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
+# The built Vite/React SPA. In prod FastAPI serves it (frontend/dist, produced by `npm run build`);
+# in local dev the Vite dev server serves it and proxies API calls here, so dist may not exist -
+# the mount is guarded and GET / returns a build hint until it's built. Path is relative to the
+# working dir the server runs from (project root), same as the CLAUDE.md deploy assumption.
+FRONTEND_DIST = Path("frontend/dist")
+if (FRONTEND_DIST / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
 # One shared Claude client - it carries no user state (all per-user scoping is via the tools' JWT),
 # so it's safe to reuse across requests rather than rebuilding it each time.
 _claude = anthropic.Anthropic(api_key=settings.anthropic_api_key)
@@ -86,14 +96,31 @@ class ChatResponse(BaseModel):
 
 @app.get("/")
 def index():
-    # The single-page login + chat UI. Path is relative to the working directory the server runs
-    # from (project root); on Fly the frontend/ dir ships alongside the app.
-    return FileResponse("frontend/index.html")
+    # Serve the built SPA. In dev (no build yet) return a clear hint instead of a confusing 404.
+    built = FRONTEND_DIST / "index.html"
+    if built.is_file():
+        return FileResponse(str(built))
+    raise HTTPException(
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "Frontend not built. Run: cd frontend && npm install && npm run build "
+        "(or use the Vite dev server: npm run dev).",
+    )
 
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/config")
+def config():
+    """Public client config: the Supabase URL + publishable ("anon") key the SPA needs to sign in
+    directly against Supabase Auth. Both are safe to expose (no privilege on their own — RLS + JWT
+    gate all data); serving them from here keeps them out of the frontend build as one source."""
+    return {
+        "supabase_url": settings.supabase_url,
+        "supabase_publishable_key": settings.supabase_publishable_key,
+    }
 
 
 @app.get("/protected-ping")

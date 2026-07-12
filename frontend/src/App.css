@@ -1,0 +1,60 @@
+/* App shell: a centered column, full-width on phones, capped on desktop. */
+.app { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; }
+.shell {
+  flex: 1; min-height: 0; width: 100%; max-width: 600px; margin: 0 auto;
+  display: flex; flex-direction: column; position: relative;
+}
+.screen-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* content column widths per screen (centered within the shell) */
+.hold { width: 100%; margin: 0 auto; }
+.hold-sm { max-width: 400px; }
+.hold-md { max-width: 460px; }
+.hold-lg { max-width: 560px; }
+
+/* Header (shared) */
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.brand { display: flex; align-items: center; gap: 9px; }
+.brand-badge {
+  display: inline-flex; width: 26px; height: 26px; border-radius: 8px; background: var(--accent);
+  align-items: center; justify-content: center; flex: none;
+}
+.brand-name { font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
+.head-actions { display: flex; align-items: center; gap: 8px; }
+.theme-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
+  border-radius: 11px; border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--ink-2); cursor: pointer;
+}
+.theme-btn:hover { background: var(--surface-3); }
+
+/* Shared buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  min-height: 54px; padding: 0 20px; border: none; border-radius: 14px; cursor: pointer;
+  font-size: 16px; font-weight: 600; letter-spacing: -.01em;
+}
+.btn-primary { width: 100%; background: var(--accent); color: #fff; box-shadow: var(--shadow); }
+.btn-primary:hover { filter: brightness(1.07); }
+.btn-primary:disabled { cursor: default; filter: none; opacity: .85; }
+.btn-secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--border-2); }
+.btn-secondary:hover { background: var(--surface-2); }
+
+.spinner {
+  width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff;
+  border-radius: 50%; display: inline-block; animation: plumb-spin .7s linear infinite;
+}
+
+/* Bottom nav (shown when authed) */
+.bottom-nav {
+  display: flex; border-top: 1px solid var(--border); background: var(--surface);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bottom-nav button {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 11px 0 10px; border: none; background: transparent; color: var(--ink-3); cursor: pointer;
+  font-size: 11px; font-weight: 600;
+}
+.bottom-nav button.active { color: var(--accent); }

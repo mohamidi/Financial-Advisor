@@ -1,0 +1,34 @@
+.vcard {
+  border: 1px solid var(--border); background: var(--surface); border-radius: 18px;
+  box-shadow: var(--shadow-lg); padding: 18px; display: flex; flex-direction: column;
+}
+.vpill {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px 5px 10px; border-radius: 999px; border: 1px solid currentColor;
+  font-size: 13px; font-weight: 700; letter-spacing: .06em; margin-bottom: 12px;
+}
+.vpill.v-yes { color: var(--yes); background: var(--yes-soft); }
+.vpill.v-risky { color: var(--risky); background: var(--risky-soft); }
+.vpill.v-no { color: var(--no); background: var(--no-soft); }
+
+.vhead {
+  font-size: 21px; line-height: 1.25; font-weight: 600; letter-spacing: -.01em;
+  margin: 0 0 10px; text-wrap: pretty;
+}
+.vreason { margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: var(--ink-2); }
+
+.vstats {
+  display: grid; gap: 1px; background: var(--border); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; margin-bottom: 14px;
+}
+.vcell { background: var(--surface-2); padding: 11px 12px; }
+.vk { font-size: 11px; color: var(--ink-3); font-weight: 600; letter-spacing: .02em; margin-bottom: 3px; }
+.vv { font-size: 18px; font-weight: 600; }
+
+.vflags { display: flex; flex-direction: column; gap: 8px; }
+.vflag {
+  display: flex; align-items: flex-start; gap: 9px; padding: 9px 12px; border-radius: 12px;
+  background: var(--no-soft); font-size: 12.8px; color: var(--ink-2); line-height: 1.45;
+}
+.vflag svg { color: var(--no); flex: none; margin-top: 1px; }
+.vflag b { color: var(--ink); font-weight: 650; }
