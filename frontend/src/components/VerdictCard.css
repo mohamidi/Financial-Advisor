@@ -1,11 +1,13 @@
 .vcard {
   border: 1px solid var(--border); background: var(--surface); border-radius: 18px;
   box-shadow: var(--shadow-lg); padding: 18px; display: flex; flex-direction: column;
+  animation: plumb-rise .45s .08s ease both;
 }
 .vpill {
   align-self: flex-start; display: inline-flex; align-items: center; gap: 7px;
   padding: 5px 12px 5px 10px; border-radius: 999px; border: 1px solid currentColor;
   font-size: 13px; font-weight: 700; letter-spacing: .06em; margin-bottom: 12px;
+  animation: plumb-stamp .5s .3s cubic-bezier(.2, .8, .3, 1.15) both;
 }
 .vpill.v-yes { color: var(--yes); background: var(--yes-soft); }
 .vpill.v-risky { color: var(--risky); background: var(--risky-soft); }
@@ -16,6 +18,7 @@
   margin: 0 0 10px; text-wrap: pretty;
 }
 .vreason { margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: var(--ink-2); }
+.vreason strong { color: var(--ink); font-weight: 650; }
 
 .vstats {
   display: grid; gap: 1px; background: var(--border); border: 1px solid var(--border);

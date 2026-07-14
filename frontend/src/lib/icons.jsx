@@ -98,6 +98,13 @@ export const Shield = (p) => (
   </Svg>
 )
 
+export const Mail = (p) => (
+  <Svg {...p}>
+    <path d="M3.5 6.5h17v11h-17z" />
+    <path d="M3.5 6.5l8.5 6.5 8.5-6.5" />
+  </Svg>
+)
+
 export const LogOut = (p) => (
   <Svg {...p}>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

@@ -5,9 +5,10 @@
 .num-title h1 { font-size: 26px; font-weight: 600; margin: 0; letter-spacing: -.02em; }
 .num-title span { font-size: 14px; color: var(--ink-3); }
 
-.hero-card { border: 1px solid var(--border); background: var(--surface); border-radius: 20px; padding: 22px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.hero-card { border: 1px solid var(--border); background: var(--surface); border-radius: 20px; padding: 22px; box-shadow: var(--shadow); margin-bottom: 16px; animation: plumb-rise .4s ease both; }
 .hero-k { display: flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 .hero-k i { width: 8px; height: 8px; border-radius: 50%; background: var(--yes); }
+.hero-k i.neg { background: var(--no); }
 .hero-big { font-size: 48px; line-height: 1; font-weight: 600; letter-spacing: -.03em; margin-bottom: 8px; }
 .hero-sub { font-size: 14px; color: var(--ink-2); }
 .hero-sub strong { color: var(--ink); font-weight: 600; }
@@ -19,19 +20,34 @@
 .num-cs { margin: 0 0 18px; font-size: 13px; color: var(--ink-3); }
 
 .bars { display: flex; flex-direction: column; gap: 14px; }
+/* Rows cascade in top-to-bottom; each bar then grows out from the left. --i set inline per row. */
+.brow { animation: plumb-rise .4s ease both; animation-delay: calc(var(--i, 0) * 45ms); }
 .brow-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
 .brow-lbl { font-size: 14px; color: var(--ink-2); font-weight: 500; }
 .brow-lbl.top { color: var(--ink); font-weight: 700; }
 .brow-amt { font-size: 14px; color: var(--ink-2); font-weight: 500; }
 .brow-amt.top { color: var(--ink); font-weight: 700; }
 .brow-track { height: 9px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
-.brow-track i { display: block; height: 100%; border-radius: 999px; background: var(--accent-soft-2); transition: width .5s cubic-bezier(.4,0,.2,1); }
+.brow-track i {
+  display: block; height: 100%; border-radius: 999px; background: var(--accent-soft-2);
+  transition: width .5s cubic-bezier(.4,0,.2,1);
+  transform-origin: left; animation: plumb-grow .55s cubic-bezier(.4,0,.2,1) both;
+  animation-delay: calc(var(--i, 0) * 45ms + 120ms);
+}
 .brow-track i.top { background: var(--accent); }
+
+.num-empty { margin: 0; font-size: 14px; color: var(--ink-3); }
 
 .proj-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
 .proj-head span:first-child { font-size: 28px; font-weight: 600; letter-spacing: -.02em; }
 .proj-note { font-size: 13px; color: var(--yes); font-weight: 600; }
+.proj-note.short { color: var(--no); }
 .proj-svg { display: block; width: 100%; height: auto; overflow: visible; }
+/* Line draws itself left-to-right (pathLength="1" on the path makes the dash math unit-free);
+   the fill and endpoint dot fade in once the line has landed. */
+.proj-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: plumb-draw .9s .2s cubic-bezier(.4,0,.2,1) forwards; }
+.proj-area { animation: plumb-fade .5s .75s ease both; }
+.proj-dot { animation: plumb-fade .35s .95s ease both; }
 .proj-axis { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: var(--ink-3); }
 
 .num-section { font-size: 15px; font-weight: 600; margin: 24px 0 12px; }

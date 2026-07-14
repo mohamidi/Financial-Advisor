@@ -58,6 +58,27 @@ input::placeholder, textarea::placeholder { color: var(--ink-3); }
 @keyframes plumb-caret { 0%,100%{opacity:0} 50%{opacity:1} }
 @keyframes plumb-spin { to { transform: rotate(360deg); } }
 @keyframes plumb-rise { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+/* Verdict pill lands like a rubber stamp — oversized + transparent, overshoots slightly, settles. */
+@keyframes plumb-stamp {
+  0% { transform: scale(1.5) rotate(-4deg); opacity: 0; }
+  62% { transform: scale(.96) rotate(0.5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+/* Gentle idle bob for the brand glyph ("staying afloat"). */
+@keyframes plumb-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+/* Line-chart draw-in: pair with pathLength="1" on the SVG path so dasharray math is unit-free. */
+@keyframes plumb-draw { to { stroke-dashoffset: 0; } }
+/* Bars grow out from the left edge. */
+@keyframes plumb-grow { from { transform: scaleX(0); } }
+@keyframes plumb-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Theme toggle: crossfade the big surfaces instead of hard-cutting. Scoped to a list (not `*`) so
+   it can't stomp on component transitions like the bar-width easing. */
+body, .app-header, .bottom-nav, .composer, .vcard, .vcell, .num-card, .hero-card, .chip,
+.bubble-assistant, .sugg button, .fld, .thinking {
+  transition: background-color .3s ease, border-color .3s ease, color .3s ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  * { animation-duration: .001ms !important; animation-delay: 0ms !important; transition-duration: .001ms !important; }
 }

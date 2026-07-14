@@ -3,6 +3,7 @@ import './Chat.css'
 import VerdictCard from '../components/VerdictCard'
 import { Wave, ArrowRight, ArrowUp } from '../lib/icons'
 import { CHAT_SUGGESTIONS } from '../lib/fields'
+import InlineMarkdown from '../lib/markdown'
 import * as api from '../lib/api'
 
 // Real conversation: POST /chat streams the reply as it's generated (SSE — see api.streamChat) —
@@ -19,17 +20,25 @@ const REVEAL_CHARS_PER_SEC = 65 // steady-state pace once caught up — a comfor
 const REVEAL_CATCH_UP_RATIO = 0.15 // fraction of the backlog drained per frame when it piles up
 
 export default function Chat({ onProfileChanged }) {
-  const [messages, setMessages] = useState([]) // { role, text, verdict?, isError?, streaming? }
+  const [messages, setMessages] = useState([]) // { role, text, verdict?, isError?, retryText?, streaming? }
   const [input, setInput] = useState('')
   const [status, setStatus] = useState('idle') // idle | thinking | streaming
   const listRef = useRef(null)
+  const stickRef = useRef(true) // auto-scroll only while the user is already near the bottom
   const revealBufRef = useRef('') // text received but not yet painted
   const revealFrameRef = useRef(null)
   const revealLastTsRef = useRef(null)
   const startedRef = useRef(false)
 
+  // Follow new content only when the user hasn't scrolled up — yanking someone back down while
+  // they're re-reading an earlier verdict mid-stream is the classic streaming-chat annoyance.
+  function onScroll() {
+    const el = listRef.current
+    if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }
+
   useEffect(() => {
-    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
+    if (stickRef.current && listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
   }, [messages, status])
 
   // Stops the reveal loop and drops anything still queued — used when a turn errors, so a half-typed
@@ -75,10 +84,13 @@ export default function Chat({ onProfileChanged }) {
     })
   }
 
-  async function ask(text) {
+  // `base` overrides the conversation to build on — used by retry, which first drops the failed
+  // user+error pair so the resend doesn't duplicate the user bubble or send the error as history.
+  async function ask(text, base = messages) {
     if (status !== 'idle') return
-    const history = messages.map(({ role, text: t }) => ({ role, text: t }))
-    setMessages((m) => [...m, { role: 'user', text }])
+    const history = base.filter((m) => !m.isError).map(({ role, text: t }) => ({ role, text: t }))
+    setMessages([...base, { role: 'user', text }])
+    stickRef.current = true // sending always re-anchors the view to the bottom
     setStatus('thinking')
     startedRef.current = false // first text chunk hasn't arrived yet — still "thinking" (may be mid tool-call)
     try {
@@ -110,10 +122,13 @@ export default function Chat({ onProfileChanged }) {
     } catch (e) {
       stopReveal()
       if (e.status === 401) return // logged out; App routes away
-      const text2 = e.status === 429 ? e.detail : 'Sorry — something went wrong. Please try again.'
+      const text2 = e.status === 429 ? e.detail : 'Sorry — something went wrong.'
+      // Offer a one-tap resend unless this was a rate/budget refusal (retrying those is futile
+      // by design — the server said come back later).
+      const retryText = e.status === 429 ? null : text
       setMessages((m) => {
-        const base = startedRef.current ? m.slice(0, -1) : m // drop the partial streaming bubble, if any
-        return [...base, { role: 'assistant', text: text2, isError: true }]
+        const rest = startedRef.current ? m.slice(0, -1) : m // drop the partial streaming bubble, if any
+        return [...rest, { role: 'assistant', text: text2, isError: true, retryText }]
       })
     } finally {
       setStatus('idle')
@@ -132,7 +147,7 @@ export default function Chat({ onProfileChanged }) {
 
   return (
     <div className="chat">
-      <div className="thread-scroll" ref={listRef} aria-live="polite">
+      <div className="thread-scroll" ref={listRef} onScroll={onScroll} aria-live="polite">
         <div className="thread">
           {empty && (
             <div className="empty rise">
@@ -160,13 +175,26 @@ export default function Chat({ onProfileChanged }) {
             ) : m.streaming ? (
               <div className="stream rise" key={idx}>
                 <div className="bubble-assistant">
-                  <p className="serif">{m.text}<span className="caret" /></p>
+                  <p className="serif"><InlineMarkdown text={m.text} /><span className="caret" /></p>
                 </div>
               </div>
             ) : (
               <div className="asst rise" key={idx}>
                 <div className={`bubble-assistant${m.isError ? ' asst-error' : ''}`}>
-                  <p className="serif">{m.text}</p>
+                  <p className="serif">
+                    <InlineMarkdown text={m.text} />
+                    {m.isError && m.retryText && (
+                      <>
+                        {' '}
+                        <button
+                          className="chat-retry"
+                          onClick={() => ask(m.retryText, messages.slice(0, idx - 1))}
+                        >
+                          Try again
+                        </button>
+                      </>
+                    )}
+                  </p>
                 </div>
                 {m.verdict && <VerdictCard verdict={m.verdict} />}
               </div>

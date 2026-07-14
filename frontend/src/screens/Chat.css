@@ -20,6 +20,7 @@
 .empty-glyph {
   width: 52px; height: 52px; border-radius: 16px; background: var(--accent-soft);
   display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;
+  animation: plumb-float 3.4s ease-in-out infinite; /* the wave mark stays afloat */
 }
 .empty h2 { font-size: 23px; font-weight: 600; margin: 0 0 8px; letter-spacing: -.02em; }
 .empty p { margin: 0 auto 24px; color: var(--ink-2); font-size: 15px; line-height: 1.55; max-width: 360px; }
@@ -30,7 +31,15 @@
   border-radius: 13px; font-size: 14.5px; cursor: pointer; text-align: left; box-shadow: var(--shadow);
 }
 .sugg button:hover { border-color: var(--accent); background: var(--surface-2); }
-.sugg svg { color: var(--ink-3); flex: none; }
+.sugg button:hover svg { transform: translateX(3px); }
+.sugg button:active { transform: scale(.98); }
+.sugg button { transition: transform .12s ease, border-color .15s ease, background-color .3s ease; }
+.sugg svg { color: var(--ink-3); flex: none; transition: transform .15s ease; }
+
+.chat-retry {
+  background: none; border: none; padding: 0; cursor: pointer; font: inherit;
+  color: var(--accent-ink); font-weight: 650; text-decoration: underline;
+}
 
 .thinking {
   align-self: flex-start; display: inline-flex; align-items: center; gap: 11px;
@@ -59,5 +68,7 @@
   flex: none; width: 48px; height: 48px; border-radius: 50%; border: none; background: var(--accent);
   color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
 }
+.composer .send { transition: transform .12s ease; }
 .composer .send:disabled { opacity: .5; cursor: default; }
 .composer .send:hover:not(:disabled) { filter: brightness(1.08); }
+.composer .send:active:not(:disabled) { transform: scale(.92); }

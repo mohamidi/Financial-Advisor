@@ -6,6 +6,11 @@
 .login-h1 { font-size: 30px; line-height: 1.15; font-weight: 600; margin: 0 0 10px; letter-spacing: -.02em; }
 .login-lede { margin: 0 0 28px; color: var(--ink-2); font-size: 16px; line-height: 1.5; }
 
+.login-mail {
+  width: 52px; height: 52px; border-radius: 16px; background: var(--accent-soft);
+  display: inline-flex; align-items: center; justify-content: center; margin-bottom: 18px;
+}
+
 .alert {
   display: flex; gap: 10px; align-items: flex-start; background: var(--no-soft);
   border: 1px solid var(--no); border-radius: 12px; padding: 12px 14px; margin-bottom: 18px;

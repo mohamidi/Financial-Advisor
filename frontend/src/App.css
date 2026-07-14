@@ -49,6 +49,11 @@
 .btn-secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--border-2); }
 .btn-secondary:hover { background: var(--surface-2); }
 
+/* Tactile press: every button dips slightly under the finger/cursor. transform only (no layout). */
+.btn { transition: transform .12s ease; }
+.btn:active:not(:disabled), .theme-btn:active, .bottom-nav-inner button:active { transform: scale(.965); }
+.theme-btn, .bottom-nav-inner button { transition: transform .12s ease, background-color .3s ease, color .2s ease; }
+
 .spinner {
   width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff;
   border-radius: 50%; display: inline-block; animation: plumb-spin .7s linear infinite;

@@ -33,6 +33,27 @@ export async function login(email, password) {
   token = (await r.json()).access_token
 }
 
+// Creates the account directly against Supabase Auth. This project's Supabase settings require
+// email confirmation, so this never returns a usable session — Supabase emails a confirmation
+// link and the caller shows a "check your email" state, not a logged-in one. Deliberately doesn't
+// distinguish "brand-new email" from "already registered" in its return value: Supabase itself
+// returns an ambiguous success for the latter (to avoid leaking which emails have accounts), and
+// showing the same "check your email" message either way is the correct, honest UI for both cases.
+export async function signup(email, password) {
+  const cfg = await loadConfig()
+  const r = await fetch(`${cfg.supabase_url}/auth/v1/signup`, {
+    method: 'POST',
+    headers: { apikey: cfg.supabase_publishable_key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
+  if (!r.ok) {
+    const e = new Error('Signup failed')
+    e.status = r.status
+    e.detail = (await r.json().catch(() => null))?.msg || null
+    throw e
+  }
+}
+
 async function api(path, options = {}) {
   const r = await fetch(path, {
     ...options,
